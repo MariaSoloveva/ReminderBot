@@ -68,6 +68,7 @@ void onCommandCreate(Bot& bot, Message::Ptr message)
     newPrompt[nameOfPrompt] = PromptNewStruct;
     //добавить в map id и всю информацию
     list[message->chat->id] = newPrompt;
+    bot.getApi().sendMessage(message->chat->id, "Done!");
 }
 void onCommandDelete(Bot& bot, Message::Ptr message)
 {
@@ -75,7 +76,7 @@ void onCommandDelete(Bot& bot, Message::Ptr message)
     std::string nameOfPrompt = message->text;
     //удалить напоминание
     list[message->chat->id].erase(nameOfPrompt);
-    bot.getApi().sendMessage(message->chat->id, "Enter a name of the prompt, you want to delete");
+    bot.getApi().sendMessage(message->chat->id, "Done!");
 }
 void onCommandTest(Bot& bot, Message::Ptr message)
 {
