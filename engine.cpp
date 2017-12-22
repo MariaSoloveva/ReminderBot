@@ -168,7 +168,4 @@ void onAnyMessage(Bot& bot, Message::Ptr message)
         bot.getApi().sendMessage(message->chat->id, Utils::fromLocale("Привет, ") + message->from->firstName);
         return;
     }
-
-    // отправляем сообщение, которое получили
-    bot.getApi().sendMessage(message->chat->id, message->from->username + ": " + message->text);
 }
