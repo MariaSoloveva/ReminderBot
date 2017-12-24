@@ -1,9 +1,11 @@
+#include <chrono>
 #include "api.hpp"
 #include "keyboard.hpp"
 #include "utils.hpp"
+#include <thread>
 
 
-struct tm* getTime(std::string dataOfPrompt)
+struct tm* getTime(const std::string& dataOfPrompt)
 {
     char str[dataOfPrompt.size()+1];
     strcpy(str, dataOfPrompt.c_str());
@@ -29,13 +31,6 @@ struct tm* getTime(std::string dataOfPrompt)
     mktime(timeinfo);
     return timeinfo;
 }
-struct Prompt
-{
-    std::string TextOfPrompt;
-    struct tm* dTm;
-};
-
-std::map<int64_t, std::map<std::string, Prompt>> list;
 // Файл, для демонстрации работы с командами и другими сообщениями
 
 using namespace std;
@@ -47,51 +42,84 @@ using namespace Utils;
 void onCommandCreate(Bot& bot, Message::Ptr message)
 {
     bot.getApi().sendMessage(message->chat->id, "Enter a name of the prompt, please");
-    //получить название напоминания
-    std::string nameOfPrompt = message->text;
-    //получить текст напоминания
+}
+
+int position = -1;
+Prompt NewPrompt;
+
+void onCommandCreateDoNameOfPrompt(Bot& bot, Message::Ptr message)
+{
+    NewPrompt.nameOfPrompt = message->text;
     bot.getApi().sendMessage(message->chat->id, "Enter text of prompt");
-    std::string textOfPrompt = message->text;
-    //получить дату
+}
+void onCommandCreateDoTextOfPrompt(Bot& bot, Message::Ptr message)
+{
+    NewPrompt.TextOfPrompt = message->text;
     bot.getApi().sendMessage(message->chat->id, "Enter data of prompt(for example, DD/MM/YY HH:MM:SS)");
-    std::string dataOfPrompt = message->text;
-    //записать дату в структуру
-    struct tm* dataTm = getTime(dataOfPrompt);
-    //добавить текст и дату в структуру
-    Prompt PromptNewStruct
-            {
-                    textOfPrompt,
-                    dataTm
-            };
-    //создаем map чтобы записать в него информацию о напоминании, сможем взять информацию по "названию"
-    std::map<std::string, Prompt> newPrompt;
-    newPrompt[nameOfPrompt] = PromptNewStruct;
-    //добавить в map id и всю информацию
-    list[message->chat->id] = newPrompt;
-    bot.getApi().sendMessage(message->chat->id, "Done!");
+}
+void onCommandCreateDoDataOfPrompt(Bot& bot, Message::Ptr message)
+{
+    struct tm* dataTm = getTime(message->text);
+    NewPrompt.dTm = dataTm;
+    list[message->chat->id].push_back(NewPrompt);
+    bot.getApi().sendMessage(message->chat->id, "Done");
 }
 void onCommandDelete(Bot& bot, Message::Ptr message)
 {
     bot.getApi().sendMessage(message->chat->id, "Enter a name of the prompt, you want to delete");
+}
+void getPosition(Bot& bot, Message::Ptr message)
+{
     std::string nameOfPrompt = message->text;
-    //удалить напоминание
-    list[message->chat->id].erase(nameOfPrompt);
-    bot.getApi().sendMessage(message->chat->id, "Done!");
+    for(size_t k = 0; k < list[message->chat->id].size(); ++k)
+    {
+        if (list[message->chat->id][k].nameOfPrompt == nameOfPrompt)
+        {
+            position = k;
+            break;
+        }
+    }
+}
+void deleteFromVector(std::vector<Prompt>& vec)
+{
+    vec.erase(vec.begin() + position);
+}
+void onCommandContinueDelete(Bot& bot, Message::Ptr message)
+{
+    getPosition(bot, message);
+    if (position != -1)
+    {
+        deleteFromVector(list[message->chat->id]);
+        bot.getApi().sendMessage(message->chat->id, "Done!");
+        position = -1;
+    }
+    else
+    {
+        bot.getApi().sendMessage(message->chat->id, "There is no prompt with this name");
+    }
+
 }
 void onCommandTest(Bot& bot, Message::Ptr message)
 {
     bot.getApi().sendMessage(message->chat->id, "Enter a name of the prompt, you want to know about");
-    //Получить название напоминания
-    std::string nameOfPrompt = message->text;
-    bot.getApi().sendMessage(message->chat->id, "Enter a name of the prompt, you want to know about");
-    std::string s = list[message->chat->id][nameOfPrompt].TextOfPrompt;
-    struct tm* u = list[message->chat->id][nameOfPrompt].dTm;
-    char str[256];
-    //вывести информацию о напоминании
-    strftime(str, sizeof(str), "%c", u);
-    bot.getApi().sendMessage(message->chat->id, nameOfPrompt);
-    bot.getApi().sendMessage(message->chat->id, s);
-    bot.getApi().sendMessage(message->chat->id, str);
+}
+void onCommandContinueTest(Bot& bot, Message::Ptr message)
+{
+    getPosition(bot, message);
+    if (position != -1)
+    {
+        struct tm *u = list[message->chat->id][position].dTm;
+        char str[100];
+        strftime(str, sizeof(str), "%c", u);
+        bot.getApi().sendMessage(message->chat->id, list[message->chat->id][position].nameOfPrompt);
+        bot.getApi().sendMessage(message->chat->id, list[message->chat->id][position].TextOfPrompt);
+        bot.getApi().sendMessage(message->chat->id, str);
+        position = -1;
+    }
+    else
+    {
+        bot.getApi().sendMessage(message->chat->id, "There is no prompt with this name");
+    }
 }
 // Функция для демонстрации работы с командами
 // Функция вызывается каждый раз, когда приходит сообщение, которое начинается со /start
@@ -133,7 +161,9 @@ std::map<std::string, std::function<void(Bot&, Message::Ptr)>> getAllCommands()
 }
 
 
-
+int value = 0;
+int j = 0;
+int k = 0;
 // Функция, которая вызывается при любом сообщении
 void onAnyMessage(Bot& bot, Message::Ptr message)
 {
@@ -151,17 +181,50 @@ void onAnyMessage(Bot& bot, Message::Ptr message)
     }
     if (StringTools::startsWith(message->text, "/create"))
     {
+        value = 1;
+        return;
+    }
+    if (value == 1)
+    {
+        onCommandCreateDoNameOfPrompt(bot, message);
+        value = 2;
+        return;
+    }
+    if (value == 2)
+    {
+        onCommandCreateDoTextOfPrompt(bot, message);
+        value = 3;
+        return;
+    }
+    if (value == 3)
+    {
+        onCommandCreateDoDataOfPrompt(bot, message);
+        value = 0;
         return;
     }
     if (StringTools::startsWith(message->text, "/delete"))
     {
+        j = 1;
+        return;
+    }
+    if (j == 1)
+    {
+        onCommandContinueDelete(bot, message);
+        j = 0;
         return;
     }
     if (StringTools::startsWith(message->text, "/test"))
     {
+        k = 1;
         return;
     }
-
+    if (k == 1)
+    {
+        getPosition(bot, message);
+        onCommandContinueTest(bot, message);
+        k = 0;
+        return;
+    }
     // если в тексте сообщения есть "Привет" приветствуем собеседника
     std::string hello = Utils::fromLocale("Привет");
     if (message->text.find(hello) != std::string::npos)
@@ -169,4 +232,6 @@ void onAnyMessage(Bot& bot, Message::Ptr message)
         bot.getApi().sendMessage(message->chat->id, Utils::fromLocale("Привет, ") + message->from->firstName);
         return;
     }
+
 }
+
