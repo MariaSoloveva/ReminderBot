@@ -9,10 +9,12 @@ struct Prompt
 {
     std::string nameOfPrompt;
     std::string TextOfPrompt;
-    struct tm* dTm;
+    int dTm;
+    std::string dateInString;
+
 };
 
-std::map<int64_t, std::vector<Prompt>> list;
+extern std::map<int64_t, std::vector<Prompt>> list;
 
 void loop(TgBot::Bot& bot);
 std::string readToken(const std::string& filename);
