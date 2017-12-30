@@ -1,16 +1,72 @@
 #include <chrono>
+#include <iostream>
+#include <sstream>
+#include <thread>
 #include "api.hpp"
 #include "keyboard.hpp"
 #include "utils.hpp"
-#include <thread>
 
-
-struct tm* getTime(const std::string& dataOfPrompt)
+int countNumberOfDays(bool leapYearOrNot, int month, int day)
+{
+    if (leapYearOrNot)
+    {
+        if (month == 1)
+            return day;
+        if (month == 2)
+            return day + 31;
+        if (month == 3)
+            return day + 60;
+        if (month == 4)
+            return day + 91;
+        if (month == 5)
+            return day + 121;
+        if (month == 6)
+            return day + 152;
+        if (month == 7)
+            return day + 182;
+        if (month == 8)
+            return day + 213;
+        if (month == 9)
+            return day + 244;
+        if (month == 10)
+            return day + 274;
+        if (month == 11)
+            return day + 305;
+        if (month == 12)
+            return day + 335;
+    }
+    else
+    {
+        if (month == 1)
+            return day;
+        if (month == 2)
+            return day + 31;
+        if (month == 3)
+            return day + 59;
+        if (month == 4)
+            return day + 90;
+        if (month == 5)
+            return day + 120;
+        if (month == 6)
+            return day + 151;
+        if (month == 7)
+            return day + 181;
+        if (month == 8)
+            return day + 212;
+        if (month == 9)
+            return day + 243;
+        if (month == 10)
+            return day + 273;
+        if (month == 11)
+            return day + 304;
+        if (month == 12)
+            return day + 334;
+    }
+}
+int getTimeinSeconds(const std::string& dataOfPrompt)
 {
     char str[dataOfPrompt.size()+1];
     strcpy(str, dataOfPrompt.c_str());
-    time_t rawtime;
-    struct tm* timeinfo;
     int year = 0;
     int month = 0;
     int day = 0;
@@ -20,17 +76,17 @@ struct tm* getTime(const std::string& dataOfPrompt)
     std::replace(str, str + strlen(str), '/', ' ');
     std::replace(str, str + strlen(str), ':', ' ');
     std::istringstream(str) >> day >> month >> year >> hour >> min >> seconds;
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
-    timeinfo->tm_year = year;
-    timeinfo->tm_mon = month - 1;
-    timeinfo->tm_mday = day;
-    timeinfo->tm_hour = hour;
-    timeinfo->tm_min = min;
-    timeinfo->tm_sec = seconds;
-    mktime(timeinfo);
-    return timeinfo;
+    bool leapYearOrNot = false;
+    if (year % 4 == 0)
+        leapYearOrNot = true;
+    year = year - 1970;
+    int yearV = year / 4;
+    year = year - yearV;
+    int numberOfDays = countNumberOfDays(leapYearOrNot, month, day);
+    int timeInSeconds = abs(seconds + min * 60 + hour * 3600 + numberOfDays * 3600 * 24 + yearV * 366 * 24 * 3600 + year *365 * 24 * 3600 - 10800);
+    return timeInSeconds;
 }
+
 // Файл, для демонстрации работы с командами и другими сообщениями
 
 using namespace std;
@@ -59,7 +115,8 @@ void onCommandCreateDoTextOfPrompt(Bot& bot, Message::Ptr message)
 }
 void onCommandCreateDoDataOfPrompt(Bot& bot, Message::Ptr message)
 {
-    struct tm* dataTm = getTime(message->text);
+    int dataTm = getTimeinSeconds(message->text);
+    NewPrompt.dateInString = message->text;
     NewPrompt.dTm = dataTm;
     list[message->chat->id].push_back(NewPrompt);
     bot.getApi().sendMessage(message->chat->id, "Done");
@@ -108,12 +165,9 @@ void onCommandContinueTest(Bot& bot, Message::Ptr message)
     getPosition(bot, message);
     if (position != -1)
     {
-        struct tm *u = list[message->chat->id][position].dTm;
-        char str[100];
-        strftime(str, sizeof(str), "%c", u);
         bot.getApi().sendMessage(message->chat->id, list[message->chat->id][position].nameOfPrompt);
         bot.getApi().sendMessage(message->chat->id, list[message->chat->id][position].TextOfPrompt);
-        bot.getApi().sendMessage(message->chat->id, str);
+        bot.getApi().sendMessage(message->chat->id, list[message->chat->id][position].dateInString);
         position = -1;
     }
     else
